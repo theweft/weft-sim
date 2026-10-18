@@ -46,6 +46,7 @@ sim *args: guest
     #!/bin/sh
     set -eu
     accel=tcg; [ -w /dev/kvm ] && accel=kvm
+    echo "accelerator: $accel"
     log={{out}}/boot.log
     timeout 120 qemu-system-"$WEFT_GUEST_ARCH" -accel "$accel" -cpu max -m 256 -nographic -no-reboot \
         -kernel "$WEFT_KERNEL_IMAGE" -initrd {{out}}/initramfs.gz \
