@@ -1,11 +1,6 @@
-<h1>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://theweft.org/brand/lockup-horizontal-dark.svg">
-    <img src="https://theweft.org/brand/lockup-horizontal-light.svg" alt="weft" height="64">
-  </picture>
-</h1>
+<h1><img src="https://theweft.org/brand/repos/weft-sim.svg" alt="" width="44" height="44" align="absmiddle"> weft-sim</h1>
 
-**weft-sim: board simulation.** The real Linux drivers run in a small VM and talk to
+**Board simulation.** The real Linux drivers run in a small VM and talk to
 simulated chips from [weft-parts](https://github.com/theweft/weft-parts), bound through the same
 device tree overlays as on hardware.
 

@@ -13,6 +13,8 @@
 //! weft-sim serve --chip 1:0x48=ads1115 --input 1:0x48:0=1.25 \
 //!     --overlay base.dtbo --i2c 1=/weft-sim/i2c@1 --overlay board.dtbo
 //! ```
+#![doc(html_logo_url = "https://theweft.org/brand/repos/weft-sim.svg")]
+#![doc(html_favicon_url = "https://theweft.org/favicon.svg")]
 
 mod device;
 mod wire;
