@@ -1,0 +1,38 @@
+[package]
+name = "weft-sim"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+description = "Board simulation: real Linux drivers in a small VM against weft-parts chip models."
+repository = "https://github.com/theweft/weft-sim"
+homepage = "https://theweft.org"
+readme = "README.md"
+publish = false
+
+[[bin]]
+name = "weft-sim"
+path = "src/main.rs"
+
+# Exact versions: updates are deliberate (Dependabot PR + review).
+[dependencies]
+libc = "=0.2.191"
+weft-parts = { version = "=0.0.1", path = "../weft-parts", default-features = false }
+
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+module_name_repetitions = "allow"
+similar_names = "allow"
+must_use_candidate = "allow"

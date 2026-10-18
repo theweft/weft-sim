@@ -1,0 +1,11 @@
+/target
+/result
+/.direnv
+/module/*.o
+/module/*.ko
+/module/*.mod
+/module/*.mod.c
+/module/.*.cmd
+/module/Module.symvers
+/module/modules.order
+/module/.module-common.o

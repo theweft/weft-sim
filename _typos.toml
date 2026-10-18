@@ -1,0 +1,4 @@
+# Project words the spell checker does not know.
+[default.extend-words]
+# Linux kernel API: MODULE_PARM_DESC.
+PARM = "PARM"

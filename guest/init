@@ -1,0 +1,50 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 The weft authors
+# SPDX-License-Identifier: MIT
+#
+# PID 1 of the test guest: load drivers, start the runner, read the ADC through the real
+# Linux driver, report, power off.
+mount -t proc proc /proc
+mount -t sysfs sys /sys
+mount -t devtmpfs dev /dev
+mkdir -p /tmp
+grep -q weft.trace /proc/cmdline && TRACE=--trace
+
+for m in $(cat /lib/modules/order); do
+	insmod "/lib/modules/$m.ko" || echo "SIM: insmod $m failed"
+done
+
+[ -d /sys/firmware/devicetree/base ] && echo "SIM: live device tree present" || echo "SIM: no live device tree"
+
+weft-sim serve $TRACE --chip 1:0x48=ads1115 --input 1:0x48:0=1.25 \
+	--overlay /boot/base.dtbo --i2c 1=/weft-sim/i2c@1 --overlay /boot/board.dtbo \
+	>/tmp/runner.log 2>&1 &
+
+for _ in $(seq 50); do
+	grep -q ready /tmp/runner.log && break
+	sleep 0.1
+done
+cat /tmp/runner.log
+
+# The driver names every variant "ads1015"; find the IIO device under the I2C device instead.
+dev=$(ls -d /sys/bus/i2c/devices/1-0048/iio:device* 2>/dev/null | head -n1)
+if [ -z "$dev" ]; then
+	echo "SIM FAIL: no ads1115 IIO device"
+	for d in /sys/bus/i2c/devices/*-*; do
+		echo "SIM: $d name=$(cat "$d/name") modalias=$(cat "$d/modalias") driver=$(readlink "$d/driver")"
+	done
+	ls /sys/bus/i2c/drivers/
+	dmesg | grep -i -E "ads|iio|i2c|weft|overlay|OF:"
+else
+	raw=$(cat "$dev/in_voltage0_raw")
+	scale=$(cat "$dev/in_voltage0_scale")
+	echo "SIM: in_voltage0_raw=$raw scale=$scale"
+	# 1.25 V input: expect 1250 mV within 1 mV.
+	mv=$(awk "BEGIN { printf \"%d\", $raw * $scale + 0.5 }")
+	if [ "$mv" -ge 1249 ] && [ "$mv" -le 1251 ]; then
+		echo "SIM PASS: ${mv} mV"
+	else
+		echo "SIM FAIL: ${mv} mV, expected 1250"
+	fi
+fi
+poweroff -f

@@ -1,0 +1,32 @@
+// SPDX-FileCopyrightText: 2026 The weft authors
+// SPDX-License-Identifier: MIT
+//
+// Base for guests without a board device tree (x86-64): one simulated I2C bus that board
+// overlays reach as &i2c1, like on a Raspberry Pi. Compiled without -@: the label is published
+// through an explicit /__symbols__ node, because the kernel rejects overlays that carry their
+// own __symbols__ when the live tree has none.
+/dts-v1/;
+
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			weft-sim {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				i2c@1 {
+					compatible = "weft,sim-i2c";
+					reg = <1>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					phandle = <1>;
+				};
+			};
+
+			__symbols__ {
+				i2c1 = "/weft-sim/i2c@1";
+			};
+		};
+	};
+};
