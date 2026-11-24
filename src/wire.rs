@@ -156,7 +156,8 @@ fn run_group(bus: &mut I2cBus, addr: u16, group: &[Msg]) -> Result<Vec<u8>, Nack
 #[cfg(test)]
 mod tests {
     use super::*;
-    use weft_parts::sim::At24;
+    use std::time::Duration;
+    use weft_parts::sim::{At24, VirtualClock};
 
     fn request(seq: u32, bus: u16, msgs: &[(u16, bool, &[u8], u16)]) -> Vec<u8> {
         let mut out = Vec::new();
@@ -183,7 +184,11 @@ mod tests {
     }
 
     fn buses() -> BTreeMap<u16, I2cBus> {
-        let mut bus = I2cBus::new();
+        buses_with_clock(VirtualClock::new())
+    }
+
+    fn buses_with_clock(clock: VirtualClock) -> BTreeMap<u16, I2cBus> {
+        let mut bus = I2cBus::with_clock(clock);
         let eeprom = At24::new(4096, 32).map(Box::new);
         assert!(eeprom.is_some());
         if let Some(eeprom) = eeprom {
@@ -229,8 +234,9 @@ mod tests {
     }
 
     #[test]
-    fn write_then_read_back() {
-        let mut buses = buses();
+    fn write_then_read_back_after_the_write_cycle() {
+        let clock = VirtualClock::new();
+        let mut buses = buses_with_clock(clock.clone());
         let write = Request::parse(&request(1, 1, &[(0x50, false, &[0, 0x10, 0xab, 0xcd], 0)]));
         assert!(write.is_ok());
         if let Ok(write) = write {
@@ -243,6 +249,9 @@ mod tests {
         ));
         assert!(read.is_ok());
         if let Ok(read) = read {
+            // During t_WR the EEPROM does not acknowledge: the Linux at24 driver retries on ENXIO.
+            assert_eq!(answer(&read, &mut buses), reply(2, -ENXIO, &[]));
+            clock.advance(Duration::from_millis(5));
             assert_eq!(answer(&read, &mut buses), reply(2, 0, &[0xab, 0xcd]));
         }
     }

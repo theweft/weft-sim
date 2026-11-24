@@ -26,7 +26,7 @@ use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 
 use weft_parts::Library;
-use weft_parts::sim::{self, Ads1115, I2cBus};
+use weft_parts::sim::{self, Ads1115, HostClock, I2cBus};
 
 /// A setup step that touches the kernel, run in command-line order.
 enum Step {
@@ -121,8 +121,13 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Config, String> {
 }
 
 /// Builds the buses: each chip is looked up by name in the built-in weft-parts library.
+///
+/// The models take their time from the guest's monotonic clock. Under KVM, HVF or WHPX guest time
+/// follows real time, so chips take as long as on hardware (an EEPROM write cycle, an ADC
+/// conversion), but runs are not repeatable to the nanosecond. All buses share one clock.
 fn build_buses(config: &Config) -> Result<BTreeMap<u16, I2cBus>, String> {
     let library = Library::builtin().map_err(|e| e.to_string())?;
+    let clock = HostClock::new();
     let mut buses: BTreeMap<u16, I2cBus> = BTreeMap::new();
     for (bus, addr, name) in &config.chips {
         let suffix = format!("/{name}.toml");
@@ -138,7 +143,7 @@ fn build_buses(config: &Config) -> Result<BTreeMap<u16, I2cBus>, String> {
         let target = sim::build(model)?;
         buses
             .entry(*bus)
-            .or_default()
+            .or_insert_with(|| I2cBus::with_clock(clock))
             .attach(*addr, target)
             .map_err(|_| format!("bus {bus}: address {addr:#04x} is used twice"))?;
     }

@@ -31,6 +31,11 @@ The models run inside the guest, so bus traffic never leaves the VM and the host
 QEMU. The guest's CPU follows the host's, so the hypervisor always accelerates it. Why this design
 and not vhost-user: weft-design [docs/04-decisions.md](https://github.com/theweft/weft-design/blob/main/docs/04-decisions.md).
 
+The models are time-aware (conversion times, EEPROM write cycles) and take their time from the
+guest's monotonic clock. Under the hypervisor that follows real time, so drivers see chips take as
+long as on hardware, but runs are not repeatable to the nanosecond. Deterministic, virtual time
+belongs to host tests (weft-parts `VirtualClock`) and to a later loosely timed tier.
+
 ## Run
 
 ```sh
