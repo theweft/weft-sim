@@ -1,9 +1,10 @@
 #!/bin/sh
 # SPDX-FileCopyrightText: 2026 The weft authors
 # SPDX-License-Identifier: MIT
+# @relation(SIM-001, SIM-003, SIM-004, SIM-005, scope=file, role=test)
 #
-# PID 1 of the test guest: load drivers, start the runner, read the ADC through the real
-# Linux driver, report, power off.
+# PID 1 of the test guest: load drivers, start the runner, drive each chip through its real
+# Linux driver (ADC read, EEPROM write and read back, DAC EEPROM store), report, power off.
 mount -t proc proc /proc
 mount -t sysfs sys /sys
 mount -t devtmpfs dev /dev
@@ -17,6 +18,7 @@ done
 [ -d /sys/firmware/devicetree/base ] && echo "SIM: live device tree present" || echo "SIM: no live device tree"
 
 weft-sim serve $TRACE --chip 1:0x48=ads1115 --input 1:0x48:0=1.25 \
+	--chip 1:0x50=24c32 --chip 1:0x60=mcp4728 \
 	--overlay /boot/base.dtbo --i2c 1=/weft-sim/i2c@1 --overlay /boot/board.dtbo \
 	>/tmp/runner.log 2>&1 &
 
@@ -26,15 +28,25 @@ for _ in $(seq 50); do
 done
 cat /tmp/runner.log
 
-# The driver names every variant "ads1015"; find the IIO device under the I2C device instead.
-dev=$(ls -d /sys/bus/i2c/devices/1-0048/iio:device* 2>/dev/null | head -n1)
-if [ -z "$dev" ]; then
-	echo "SIM FAIL: no ads1115 IIO device"
+failed=0
+fail() {
+	echo "SIM FAIL: $*"
+	failed=1
+}
+
+diagnose() {
 	for d in /sys/bus/i2c/devices/*-*; do
 		echo "SIM: $d name=$(cat "$d/name") modalias=$(cat "$d/modalias") driver=$(readlink "$d/driver")"
 	done
 	ls /sys/bus/i2c/drivers/
-	dmesg | grep -i -E "ads|iio|i2c|weft|overlay|OF:"
+	dmesg | grep -i -E "ads|at24|mcp4728|regulator|iio|i2c|weft|overlay|OF:"
+}
+
+# ADS1115 (ti-ads1015): the driver waits out the conversion time itself.
+# The driver names every variant "ads1015"; find the IIO device under the I2C device instead.
+dev=$(ls -d /sys/bus/i2c/devices/1-0048/iio:device* 2>/dev/null | head -n1)
+if [ -z "$dev" ]; then
+	fail "no ads1115 IIO device"
 else
 	raw=$(cat "$dev/in_voltage0_raw")
 	scale=$(cat "$dev/in_voltage0_scale")
@@ -42,9 +54,53 @@ else
 	# 1.25 V input: expect 1250 mV within 1 mV.
 	mv=$(awk "BEGIN { printf \"%d\", $raw * $scale + 0.5 }")
 	if [ "$mv" -ge 1249 ] && [ "$mv" -le 1251 ]; then
-		echo "SIM PASS: ${mv} mV"
+		echo "SIM ok: ads1115 ${mv} mV"
 	else
-		echo "SIM FAIL: ${mv} mV, expected 1250"
+		fail "ads1115 ${mv} mV, expected 1250"
 	fi
+fi
+
+# 24C32 (at24): one 40-byte write across two page boundaries (32, 64). The driver splits it
+# into page writes and retries while the chip is busy with each write cycle (NACK).
+eeprom=/sys/bus/i2c/devices/1-0050/eeprom
+msg="weft-sim: page writes across boundaries"
+if [ ! -e "$eeprom" ]; then
+	fail "no 24c32 eeprom"
+elif ! printf '%s' "$msg" | dd of="$eeprom" bs=${#msg} count=1 seek=30 oflag=seek_bytes conv=notrunc 2>/tmp/dd.log; then
+	cat /tmp/dd.log
+	fail "24c32 write failed"
+else
+	back=$(dd if="$eeprom" bs=1 skip=30 count=${#msg} 2>/dev/null)
+	if [ "$back" = "$msg" ]; then
+		echo "SIM ok: 24c32 ${#msg} bytes written and read back"
+	else
+		fail "24c32 read back '$back', expected '$msg'"
+	fi
+fi
+
+# MCP4728 (mcp4728): set a code, then store to EEPROM; the driver polls RDY/BSY until the
+# 50 ms programming time is over.
+dac=$(ls -d /sys/bus/i2c/devices/1-0060/iio:device* 2>/dev/null | head -n1)
+if [ -z "$dac" ]; then
+	fail "no mcp4728 IIO device"
+else
+	echo 2048 >"$dac/out_voltage0_raw"
+	raw=$(cat "$dac/out_voltage0_raw")
+	if [ "$raw" != 2048 ]; then
+		fail "mcp4728 out_voltage0_raw=$raw, expected 2048"
+	elif echo 1 >"$dac/store_eeprom"; then
+		echo "SIM ok: mcp4728 code 2048 stored to EEPROM"
+	else
+		fail "mcp4728 store_eeprom failed"
+	fi
+fi
+
+# `just sim weft.trace`: the runner logged every transfer; print them after the tests.
+[ -n "${TRACE:-}" ] && grep "Request" /tmp/runner.log
+
+if [ "$failed" = 0 ]; then
+	echo "SIM PASS: ads1115, 24c32, mcp4728"
+else
+	diagnose
 fi
 poweroff -f

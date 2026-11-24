@@ -52,6 +52,7 @@
               pkgs.taplo
               pkgs.typos
               pkgs.reuse
+              pkgs.strictdoc
               pkgs.dtc
             ]
             ++ lib.optionals stdenv.hostPlatform.isLinux [

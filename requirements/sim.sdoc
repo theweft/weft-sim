@@ -1,0 +1,143 @@
+[DOCUMENT]
+TITLE: weft-sim requirements
+VERSION: 0.1 (draft)
+OPTIONS:
+  MARKUP: Text
+
+[GRAMMAR]
+ELEMENTS:
+- TAG: SECTION
+  PROPERTIES:
+    IS_COMPOSITE: True
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: False
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+- TAG: TEXT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: False
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATUS
+    TYPE: SingleChoice(Draft, Active, Deleted)
+    REQUIRED: True
+  - TITLE: VERIFICATION
+    TYPE: SingleChoice(Test, Analysis, Inspection, Demonstration)
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  - TITLE: SATISFIES
+    HUMAN_TITLE: Satisfies (system requirements, weft-design)
+    TYPE: String
+    REQUIRED: False
+  - TITLE: STANDARDS
+    HUMAN_TITLE: Standards (draft mapping)
+    TYPE: String
+    REQUIRED: False
+  - TITLE: FACTS
+    HUMAN_TITLE: Facts (facts.toml in the design repository)
+    TYPE: String
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: File
+
+[TEXT]
+STATEMENT: >>>
+Component requirements of weft-sim: real Linux drivers in a small VM against weft-parts chip models. Each requirement is traced by @relation markers to its implementation (Rust in src/, C in module/, device tree and scripts in guest/) and, with role=test, to the tests that verify it (unit tests in src/, the VM test in guest/init). The gate in tests/requirements.rs fails when an Active requirement verified by Test has no implementation or no test marker, or when a marker names an unknown requirement.
+
+weft-sim is development and test tooling: it refines no system requirement, so SATISFIES is empty. Design: weft-design docs/04-decisions.md (Board simulation, Time in the models).
+<<<
+
+[[SECTION]]
+TITLE: Forwarding
+
+[REQUIREMENT]
+UID: SIM-001
+STATUS: Active
+VERIFICATION: Test
+TITLE: Kernel module forwards only
+STATEMENT: >>>
+The kernel module shall turn each I2C transfer on a weft-sim adapter into one request on /dev/weft-sim and complete it with the runner's reply, holding no chip logic; a transfer that the runner does not answer in time shall fail and its late reply shall be dropped.
+<<<
+RATIONALE: >>>
+All behaviour stays in the Rust models, and the module loads into any kernel, including Raspberry Pi OS kernels built without Rust.
+<<<
+
+[REQUIREMENT]
+UID: SIM-002
+STATUS: Active
+VERIFICATION: Test
+TITLE: Wire format and replies
+STATEMENT: >>>
+The runner shall parse requests, answer malformed ones with EPROTO and unknown buses or unacknowledged addresses with ENXIO, and run consecutive messages to one address as one transfer with repeated starts.
+<<<
+RATIONALE: >>>
+Linux I2C drivers treat ENXIO as "no device" or "busy" and retry where the chip would.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Device tree
+
+[REQUIREMENT]
+UID: SIM-003
+STATUS: Active
+VERIFICATION: Test
+TITLE: Raspberry Pi labels for board overlays
+STATEMENT: >>>
+The base overlay shall publish the simulated bus as &i2c1 and a fixed 3.3 V regulator as &vdd_3v3_reg, as on a Raspberry Pi, and the module shall create devices for the regulators, so that board overlays written for a Pi apply unchanged.
+<<<
+RATIONALE: >>>
+The overlay under test must be the one that ships with the board.
+<<<
+
+[[/SECTION]]
+
+[[SECTION]]
+TITLE: Time and drivers
+
+[REQUIREMENT]
+UID: SIM-004
+STATUS: Active
+VERIFICATION: Test
+TITLE: Models on the guest's clock
+STATEMENT: >>>
+All simulated buses shall share one clock, the guest's monotonic clock, so that chips take as long as on hardware (conversion times, EEPROM write cycles) for the drivers in the guest.
+<<<
+RATIONALE: >>>
+Under KVM, HVF or WHPX guest time follows real time; drivers time out on the kernel's clock, so the models must use the same clock.
+<<<
+
+[REQUIREMENT]
+UID: SIM-005
+STATUS: Active
+VERIFICATION: Test
+TITLE: Upstream drivers end to end
+STATEMENT: >>>
+The VM test shall bind the upstream ti-ads1015, at24 and mcp4728 drivers through a board overlay and pass when the ADC reads its input within 1 mV, 39 bytes written across two EEPROM page boundaries read back unchanged, and a DAC code is stored to EEPROM.
+<<<
+RATIONALE: >>>
+Only the real drivers show whether the models and their timing match what Linux expects (retries during write cycles, RDY/BSY polling).
+<<<
+
+[[/SECTION]]

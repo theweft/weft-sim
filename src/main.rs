@@ -125,6 +125,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Config, String> {
 /// The models take their time from the guest's monotonic clock. Under KVM, HVF or WHPX guest time
 /// follows real time, so chips take as long as on hardware (an EEPROM write cycle, an ADC
 /// conversion), but runs are not repeatable to the nanosecond. All buses share one clock.
+/// @relation(SIM-004, scope=function)
 fn build_buses(config: &Config) -> Result<BTreeMap<u16, I2cBus>, String> {
     let library = Library::builtin().map_err(|e| e.to_string())?;
     let clock = HostClock::new();
@@ -158,6 +159,7 @@ fn build_buses(config: &Config) -> Result<BTreeMap<u16, I2cBus>, String> {
 }
 
 /// Answers requests until the device is closed or fails.
+/// @relation(SIM-001, scope=function)
 fn serve(device: &File, buses: &Mutex<BTreeMap<u16, I2cBus>>, trace: bool) -> std::io::Error {
     let mut buf = vec![0u8; device::MAX_XFER];
     let mut reader = device;

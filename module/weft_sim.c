@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
@@ -51,6 +52,9 @@ static struct i2c_adapter *adapters[WEFT_SIM_MAX_ADAPTERS];
 static int overlays[WEFT_SIM_MAX_OVERLAYS];
 static int n_overlays;
 
+/**
+ * @relation(SIM-001, scope=function)
+ */
 static int weft_sim_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 {
 	struct weft_sim_req *req = (struct weft_sim_req *)req_buf;
@@ -210,6 +214,26 @@ static ssize_t weft_sim_write(struct file *file, const char __user *buf, size_t 
 	return ret;
 }
 
+/*
+ * Board-level devices that are not on a simulated bus (fixed regulators such as the Pi's
+ * vdd_3v3_reg): x86 has no platform bus for device tree nodes, so create platform devices for
+ * the children of /weft-sim/regulators. Idempotent; nodes removed with an overlay take their
+ * devices with them.
+ */
+/**
+ * @relation(SIM-003, scope=function)
+ */
+static void weft_sim_populate(void)
+{
+	struct device_node *np = of_find_node_by_path("/weft-sim/regulators");
+
+	if (!np)
+		return;
+	if (of_platform_default_populate(np, NULL, NULL))
+		pr_warn("weft-sim: creating regulator devices failed\n");
+	of_node_put(np);
+}
+
 static long weft_sim_apply_overlay(void __user *arg)
 {
 	struct weft_sim_overlay ov;
@@ -240,6 +264,7 @@ static long weft_sim_apply_overlay(void __user *arg)
 		goto out;
 	}
 	overlays[n_overlays++] = id;
+	weft_sim_populate();
 out:
 	mutex_unlock(&config_lock);
 	return ret;

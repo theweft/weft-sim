@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-FileCopyrightText: 2026 The weft authors
 # SPDX-License-Identifier: MIT
+# @relation(SIM-005, scope=file)
 #
 # Packs the test initramfs. Inputs come from the environment (see the justfile):
 #   BUSYBOX  static busybox binary      MODULES  kernel modules directory (lib/modules/<ver>)
@@ -17,7 +18,7 @@ for applet in $("$BUSYBOX" --list); do ln -sf busybox "$root/bin/$applet"; done
 cp "$RUNNER" "$root/bin/weft-sim"
 
 # Drivers under test, in load order.
-order="industrialio kfifo_buf industrialio-triggered-buffer ti-ads1015"
+order="industrialio kfifo_buf industrialio-triggered-buffer ti-ads1015 fixed at24 mcp4728"
 for m in $order; do
 	src=$(find "$MODULES" -name "$m.ko*" | head -n1)
 	case "$src" in

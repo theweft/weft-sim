@@ -36,7 +36,7 @@ runner:
 guest: module runner
     mkdir -p {{out}}
     dtc -q -I dts -O dtb -o {{out}}/base.dtbo guest/base.dts
-    dtc -q -@ -I dts -O dtb -o {{out}}/board.dtbo tests/boards/ads1115.dts
+    dtc -q -@ -I dts -O dtb -o {{out}}/board.dtbo tests/boards/hat.dts
     BUSYBOX="$WEFT_BUSYBOX" MODULES="$WEFT_KERNEL_MODULES" \
     RUNNER=target/{{musl}}/release/weft-sim SIM_KO=module/weft_sim.ko \
     BASE={{out}}/base.dtbo BOARD={{out}}/board.dtbo OUT={{out}}/initramfs.gz sh guest/build.sh
@@ -72,5 +72,10 @@ licenses:
 doc:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps
 
+# Validates requirements/*.sdoc and renders requirements, traceability and ReqIF to target/requirements.
+# The coverage gate itself runs as a test (tests/requirements.rs).
+requirements:
+    strictdoc export . --formats=html,reqif-sdoc --output-dir target/requirements
+
 # Everything CI checks.
-ci: fmt-check clippy test deny licenses typos doc sim
+ci: fmt-check clippy test deny licenses typos doc requirements sim

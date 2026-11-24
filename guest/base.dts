@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 The weft authors
 // SPDX-License-Identifier: MIT
+// @relation(SIM-003, scope=file)
 //
 // Base for guests without a board device tree (x86-64): one simulated I2C bus that board
-// overlays reach as &i2c1, like on a Raspberry Pi. Compiled without -@: the label is published
+// overlays reach as &i2c1, and the 3.3 V rail they reach as &vdd_3v3_reg, like on a Raspberry Pi. Compiled without -@: the label is published
 // through an explicit /__symbols__ node, because the kernel rejects overlays that carry their
 // own __symbols__ when the live tree has none.
 /dts-v1/;
@@ -22,10 +23,26 @@
 					#size-cells = <0>;
 					phandle = <1>;
 				};
+
+				regulators {
+					compatible = "simple-bus";
+					#address-cells = <0>;
+					#size-cells = <0>;
+
+					regulator-3v3 {
+						compatible = "regulator-fixed";
+						regulator-name = "3v3";
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-always-on;
+						phandle = <2>;
+					};
+				};
 			};
 
 			__symbols__ {
 				i2c1 = "/weft-sim/i2c@1";
+				vdd_3v3_reg = "/weft-sim/regulators/regulator-3v3";
 			};
 		};
 	};

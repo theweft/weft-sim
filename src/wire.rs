@@ -61,6 +61,7 @@ impl Request {
     ///
     /// # Errors
     /// When the buffer is shorter than its own headers say.
+    /// @relation(SIM-002, scope=function)
     pub fn parse(buf: &[u8]) -> Result<Self, Malformed> {
         let seq = u32_at(buf, 0)?;
         let bus = u16_at(buf, 4)?;
@@ -107,6 +108,7 @@ fn reply(seq: u32, status: i32, data: &[u8]) -> Vec<u8> {
 ///
 /// Messages to the same address run as one transfer with repeated starts, as on hardware;
 /// a change of address starts a new transfer.
+/// @relation(SIM-002, scope=function)
 pub fn answer(request: &Request, buses: &mut BTreeMap<u16, I2cBus>) -> Vec<u8> {
     let Some(bus) = buses.get_mut(&request.bus) else {
         return reply(request.seq, -ENXIO, &[]);
@@ -197,6 +199,7 @@ mod tests {
         BTreeMap::from([(1, bus)])
     }
 
+    /// @relation(SIM-002, scope=function, role=test)
     #[test]
     fn parses_messages_and_data() {
         let raw = request(7, 1, &[(0x50, false, &[0, 0x10], 0), (0x50, true, &[], 3)]);
@@ -224,6 +227,7 @@ mod tests {
         );
     }
 
+    /// @relation(SIM-002, scope=function, role=test)
     #[test]
     fn truncated_request_is_malformed() {
         let raw = request(7, 1, &[(0x50, false, &[0, 0x10], 0)]);
@@ -233,6 +237,7 @@ mod tests {
         );
     }
 
+    /// @relation(SIM-002, SIM-004, scope=function, role=test)
     #[test]
     fn write_then_read_back_after_the_write_cycle() {
         let clock = VirtualClock::new();
@@ -256,6 +261,7 @@ mod tests {
         }
     }
 
+    /// @relation(SIM-002, scope=function, role=test)
     #[test]
     fn unknown_address_or_bus_is_enxio() {
         let mut buses = buses();

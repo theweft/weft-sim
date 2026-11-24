@@ -1,0 +1,29 @@
+// SPDX-FileCopyrightText: 2026 The weft authors
+// SPDX-License-Identifier: MIT
+//
+// A Raspberry Pi style overlay for a small HAT on i2c1: ADS1115 ADC (ADDR to GND, 0x48),
+// 24C32 EEPROM (0x50) and MCP4728 DAC (0x60) on the Pi's 3.3 V rail.
+/dts-v1/;
+/plugin/;
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adc: adc@48 {
+		compatible = "ti,ads1115";
+		reg = <0x48>;
+	};
+
+	eeprom: eeprom@50 {
+		compatible = "atmel,24c32";
+		reg = <0x50>;
+	};
+
+	dac: dac@60 {
+		compatible = "microchip,mcp4728";
+		reg = <0x60>;
+		vdd-supply = <&vdd_3v3_reg>;
+	};
+};
